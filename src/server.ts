@@ -1,6 +1,6 @@
 import express from 'express';
 import bodyParser from 'body-parser';
-import { filterImageFromURL, deleteLocalFiles, errorMessages } from './util/util';
+import { filterImageFromURL, deleteLocalFile, errorMessages } from './util/util';
 
 (async () => {
   // Init the Express application
@@ -34,7 +34,7 @@ import { filterImageFromURL, deleteLocalFiles, errorMessages } from './util/util
     try {
       const localPath = await filterImageFromURL(url);
       res.status(200).sendFile(localPath);
-      res.on('finish', deleteLocalFiles.bind(null, [localPath]));
+      res.on('finish', deleteLocalFile.bind(null, localPath));
     } catch ({ message }) {
       if (!Object.values(errorMessages).includes(message)) {
         message = 'Internal error'; // Default to avoid sending unknown error messages to user
