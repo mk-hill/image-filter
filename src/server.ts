@@ -1,6 +1,8 @@
-import express from 'express';
+import { basename } from 'path';
+import express, { Request, Response } from 'express';
 import bodyParser from 'body-parser';
-import { filterImageFromURL, deleteLocalFile, errorMessages } from './util/util';
+import { filterImageFromURL, deleteLocalFile, saveToBucket, getFromBucket, deleteLocalFiles } from './util';
+import { handleErrorResponse, requireImageUrl } from './validation';
 
 (async () => {
   // Init the Express application
@@ -12,39 +14,46 @@ import { filterImageFromURL, deleteLocalFile, errorMessages } from './util/util'
   // Use the body parser middleware for post requests
   app.use(bodyParser.json());
 
-  // @TODO1 IMPLEMENT A RESTFUL ENDPOINT
-  // GET /filteredimage?image_url={{URL}}
-  // endpoint to filter an image from a public url.
-  // IT SHOULD
-  //    1
-  //    1. validate the image_url query
-  //    2. call filterImageFromURL(image_url) to filter the image
-  //    3. send the resulting file in the response
-  //    4. deletes any files on the server on finish of the response
-  // QUERY PARAMETERS
-  //    image_url: URL of a publicly accessible image
-  // RETURNS
-  //   the filtered image file [!!TIP res.sendFile(filteredpath); might be useful]
-  app.get('/filteredimage', async (req, res) => {
+  /**
+   * Validate image_url query parameter
+   * Get original image from image_url if it exists
+   * Save filtered image to local drive
+   * Send filtered image in response
+   * Delete local file
+   */
+  app.get('/filteredimage', requireImageUrl, async (req: Request, res: Response) => {
     const { image_url: url } = req.query as { image_url: string };
-    if (!url) {
-      return res.status(400).send('Image URL required');
-    }
 
     try {
       const localPath = await filterImageFromURL(url);
       res.status(200).sendFile(localPath);
       res.on('finish', deleteLocalFile.bind(null, localPath));
     } catch ({ message }) {
-      if (!Object.values(errorMessages).includes(message)) {
-        message = 'Internal error'; // Default to avoid sending unknown error messages to user
-      }
-      const statusCode = message === errorMessages.READ ? 400 : 500; // Assume url was the problem if Jimp couldn't read
-      res.status(statusCode).send(message);
+      handleErrorResponse(res, message);
     }
   });
 
-  /**************************************************************************** */
+  /**
+   * Validate image_url query parameter
+   * Get original image from S3 bucket if given path exists in bucket
+   * Save filtered image to local drive
+   * Save filtered image to S3 bucket
+   * Delete local file
+   * Return filtered image's path in bucket
+   */
+  app.post('/filteredimage', requireImageUrl, async (req: Request, res: Response) => {
+    const { image_url: bucketPathOriginal } = req.query as { image_url: string };
+
+    try {
+      const localPathOriginal = await getFromBucket(bucketPathOriginal);
+      const localPathFiltered = await filterImageFromURL(localPathOriginal, basename(bucketPathOriginal));
+      const bucketPathFiltered = await saveToBucket(localPathFiltered);
+      deleteLocalFiles([localPathOriginal, localPathFiltered]);
+      res.status(201).send(bucketPathFiltered);
+    } catch ({ message }) {
+      handleErrorResponse(res, message);
+    }
+  });
 
   // Root Endpoint
   // Displays a simple message to the user

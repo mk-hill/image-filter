@@ -1,10 +1,6 @@
-import fs from 'fs';
-import Jimp = require('jimp');
-
-export enum errorMessages {
-  READ = 'Unable to read image URL, please ensure resource exists.',
-  FILTER = 'Unable to filter image.',
-}
+import { unlinkSync } from 'fs';
+import Jimp from 'jimp';
+import { ErrorMessages } from '../validation';
 
 // filterImageFromURL
 // helper function to download, filter, and save the filtered image locally
@@ -13,24 +9,24 @@ export enum errorMessages {
 //    inputURL: string - a publicly accessible url to an image file
 // RETURNS
 //    an absolute path to a filtered image locally saved file
-export async function filterImageFromURL(inputURL: string): Promise<string> {
+export async function filterImageFromURL(inputURL: string, fileName = `${Math.floor(Math.random() * 2000)}.jpg`): Promise<string> {
   const photo = await Jimp.read(inputURL).catch((e) => {
-    console.log(e);
-    throw new Error(errorMessages.READ);
+    console.error(e);
+    throw new Error(ErrorMessages.READ);
   });
 
-  const relativePath = '/tmp/filtered.' + Math.floor(Math.random() * 2000) + '.jpg';
-  const absolutePath = __dirname + relativePath;
+  const absolutePath = `${__dirname}/tmp/filtered.${fileName}`;
 
   return photo
-    .resize(256, Jimp.AUTO) // resize
+    .resize(512, Jimp.AUTO) // resize
     .quality(60) // set JPEG quality
     .greyscale() // set greyscale
+    .contrast(0.2) // increase contrast
     .writeAsync(absolutePath)
     .then((_) => absolutePath)
     .catch((e) => {
-      console.log(e);
-      throw new Error(errorMessages.FILTER);
+      console.error(e);
+      throw new Error(ErrorMessages.FILTER);
     });
 }
 
@@ -45,4 +41,4 @@ export function deleteLocalFiles(files: string[]) {
   }
 }
 
-export const deleteLocalFile = (path: string) => fs.unlinkSync(path);
+export const deleteLocalFile = (path: string) => unlinkSync(path);
