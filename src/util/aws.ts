@@ -57,7 +57,7 @@ export function saveToBucket(filePath: string) {
   };
 
   return upload(params)
-    .then((x) => x.Key)
+    .then(({ Key }) => Key)
     .catch((e) => {
       console.error(e);
       throw new Error(ErrorMessages.SAVE);

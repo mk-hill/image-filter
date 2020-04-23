@@ -16,6 +16,6 @@ export const handleErrorResponse = (res: Response, message: string) => {
     message = 'Internal error'; // Default to avoid sending unknown error messages in response
   }
 
-  const statusCode = message === ErrorMessages.READ ? 400 : 500; // Assume url was the problem if Jimp couldn't read
+  const statusCode = message === ErrorMessages.READ ? 422 : 500; // Assume url was the problem if Jimp couldn't read
   res.status(statusCode).send(message);
 };
